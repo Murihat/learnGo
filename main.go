@@ -2,7 +2,6 @@ package main
 
 import (
 	"encoding/json"
-	"fmt"
 	"learnGo/config"
 	"learnGo/database"
 	"learnGo/handlers"
@@ -12,6 +11,7 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"time"
 )
 
 type Categories struct {
@@ -32,37 +32,49 @@ type Config struct {
 }
 
 func main() {
-	fmt.Println("Program started 🚀")
+	log.Println("Program started 🚀")
+
+	// Load config (works for local + Zeabur)
 	cfg := config.LoadConfig()
 
+	// Init database
 	db, err := database.InitDB(cfg.DBConn)
 	if err != nil {
 		log.Fatal("Failed to initialize database:", err)
 	}
 	defer db.Close()
 
+	// Dependency Injection
 	productRepo := repositories.NewProductRepository(db)
 	productService := services.NewProductService(productRepo)
 	productHandler := handlers.NewProductHandler(productService)
 
-	http.HandleFunc("/api/product", productHandler.HandleProducts)
-	http.HandleFunc("/api/product/", productHandler.HandleProductByID)
+	// Routes
+	mux := http.NewServeMux()
+	mux.HandleFunc("/api/product", productHandler.HandleProducts)
+	mux.HandleFunc("/api/product/", productHandler.HandleProductByID)
 
-	// localhost:8080/health
-	http.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
+	// Health check
+	mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(map[string]string{
 			"status":  "OK",
 			"message": "API Running",
+			"time":    time.Now().Format(time.RFC3339),
 		})
 	})
 
-	fmt.Println("Server running di localhost:" + cfg.Port)
-	err = http.ListenAndServe(":"+cfg.Port, nil)
-	if err != nil {
-		fmt.Println("failed to run server")
+	// Server config (important for production)
+	server := &http.Server{
+		Addr:         ":" + cfg.Port,
+		Handler:      mux,
+		ReadTimeout:  10 * time.Second,
+		WriteTimeout: 10 * time.Second,
+		IdleTimeout:  60 * time.Second,
 	}
 
+	log.Println("Server running on port", cfg.Port)
+	log.Fatal(server.ListenAndServe())
 }
 
 func getCategoriesByID(w http.ResponseWriter, r *http.Request) {

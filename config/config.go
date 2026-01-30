@@ -12,12 +12,15 @@ type Config struct {
 }
 
 func LoadConfig() Config {
-	viper.SetConfigFile(".env")
-	viper.SetConfigType("env")
+	// 1️⃣ Selalu baca ENV dari OS (Zeabur, Docker, dll)
 	viper.AutomaticEnv()
 
+	// 2️⃣ .env hanya untuk local (opsional)
+	viper.SetConfigFile(".env")
+	viper.SetConfigType("env")
+
 	if err := viper.ReadInConfig(); err != nil {
-		log.Fatal("Error loading .env file:", err)
+		log.Println("No .env file found, using environment variables")
 	}
 
 	cfg := Config{
@@ -25,8 +28,14 @@ func LoadConfig() Config {
 		DBConn: viper.GetString("DB_CONN"),
 	}
 
+	// 3️⃣ Fail fast hanya untuk variable WAJIB
 	if cfg.DBConn == "" {
-		log.Fatal("DB_CONN is empty — check .env")
+		log.Fatal("DB_CONN is required but not set")
+	}
+
+	// 4️⃣ Default port (Zeabur biasanya inject PORT)
+	if cfg.Port == "" {
+		cfg.Port = "8080"
 	}
 
 	return cfg
