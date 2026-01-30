@@ -1,0 +1,11 @@
+# Environment variables
+.env
+
+# Go build
+/bin/
+/dist/
+
+# Editor / OS
+.vscode/
+.idea/
+.DS_Store
