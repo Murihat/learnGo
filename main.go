@@ -9,27 +9,8 @@ import (
 	"learnGo/services"
 	"log"
 	"net/http"
-	"strconv"
-	"strings"
 	"time"
 )
-
-type Categories struct {
-	ID          int    `json:"id"`
-	Nama        string `json:"nama"`
-	Description string `json:"deskription"`
-}
-
-var categories = []Categories{
-	{ID: 1, Nama: "Food", Description: "Food Description"},
-	{ID: 2, Nama: "Drink", Description: "Drink Description"},
-	{ID: 3, Nama: "Beverages", Description: "Food Description"},
-}
-
-type Config struct {
-	Port   string `mapstructure:"PORT"`
-	DBConn string `mapsctructure:"DB_CONN"`
-}
 
 func main() {
 	log.Println("Program started 🚀")
@@ -49,10 +30,18 @@ func main() {
 	productService := services.NewProductService(productRepo)
 	productHandler := handlers.NewProductHandler(productService)
 
+	// Dependency Injection
+	categoryRepo := repositories.NewCategoryRepository(db)
+	categoryService := services.NewCategoryService(categoryRepo)
+	categoryHandler := handlers.NewCategoryHandler(categoryService)
+
 	// Routes
 	mux := http.NewServeMux()
 	mux.HandleFunc("/api/product", productHandler.HandleProducts)
 	mux.HandleFunc("/api/product/", productHandler.HandleProductByID)
+
+	mux.HandleFunc("/api/category", categoryHandler.HandleCategories)
+	mux.HandleFunc("/api/category/", categoryHandler.HandleCategoryByID)
 
 	// Health check
 	mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
@@ -75,90 +64,4 @@ func main() {
 
 	log.Println("Server running on port", cfg.Port)
 	log.Fatal(server.ListenAndServe())
-}
-
-func getCategoriesByID(w http.ResponseWriter, r *http.Request) {
-	// Parse ID dari URL path
-	// URL: /api/categories/123 -> ID = 123
-	idStr := strings.TrimPrefix(r.URL.Path, "/api/categories/")
-	id, err := strconv.Atoi(idStr)
-	if err != nil {
-		http.Error(w, "Invalid categories ID", http.StatusBadRequest)
-		return
-	}
-
-	// Cari categories dengan ID tersebut
-	for _, p := range categories {
-		if p.ID == id {
-			w.Header().Set("Content-Type", "application/json")
-			json.NewEncoder(w).Encode(p)
-			return
-		}
-	}
-
-	// Kalau tidak found
-	http.Error(w, "Categories belum ada", http.StatusNotFound)
-}
-
-// PUT localhost:8080/api/categories/{id}
-func updateCategories(w http.ResponseWriter, r *http.Request) {
-	// get id dari request
-	idStr := strings.TrimPrefix(r.URL.Path, "/api/categories/")
-
-	// ganti int
-	id, err := strconv.Atoi(idStr)
-	if err != nil {
-		http.Error(w, "Invalid Categories ID", http.StatusBadRequest)
-		return
-	}
-
-	// get data dari request
-	var updateCategories Categories
-	err = json.NewDecoder(r.Body).Decode(&updateCategories)
-	if err != nil {
-		http.Error(w, "Invalid request", http.StatusBadRequest)
-		return
-	}
-
-	// loop categories, cari id, ganti sesuai data dari request
-	for i := range categories {
-		if categories[i].ID == id {
-			updateCategories.ID = id
-			categories[i] = updateCategories
-
-			w.Header().Set("Content-Type", "application/json")
-			json.NewEncoder(w).Encode(updateCategories)
-			return
-		}
-	}
-
-	http.Error(w, "Categories belum ada", http.StatusNotFound)
-}
-
-func deleteCategories(w http.ResponseWriter, r *http.Request) {
-	// get id
-	idStr := strings.TrimPrefix(r.URL.Path, "/api/categories/")
-
-	// ganti id int
-	id, err := strconv.Atoi(idStr)
-	if err != nil {
-		http.Error(w, "Invalid Categories ID", http.StatusBadRequest)
-		return
-	}
-
-	// loop categories cari ID, dapet index yang mau dihapus
-	for i, p := range categories {
-		if p.ID == id {
-			// bikin slice baru dengan data sebelum dan sesudah index
-			categories = append(categories[:i], categories[i+1:]...)
-
-			w.Header().Set("Content-Type", "application/json")
-			json.NewEncoder(w).Encode(map[string]string{
-				"message": "sukses delete",
-			})
-			return
-		}
-	}
-
-	http.Error(w, "Categories belum ada", http.StatusNotFound)
 }

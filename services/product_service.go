@@ -1,6 +1,7 @@
 package services
 
 import (
+	"errors"
 	"learnGo/models"
 	"learnGo/repositories"
 )
@@ -18,6 +19,9 @@ func (s *ProductService) GetAll() ([]models.ProductModel, error) {
 }
 
 func (s *ProductService) Create(data *models.ProductModel) error {
+	if data.CategoryID == 0 {
+		return errors.New("category_id is required")
+	}
 	return s.repo.Create(data)
 }
 
